@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Eventos y Usuarios</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <div class="container mt-5">
+        <div class="card shadow">
+            <div class="card-header bg-dark text-white">
+                <h3 class="mb-0">Listado de Eventos (Evaluación 3)</h3>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered align-middle">
+                        <thead class="table-secondary">
+                            <tr>
+                                <th>Nombre del Evento</th>
+                                <th>Categoría</th>
+                                <th>Fecha</th>
+                                <th>Costo</th>
+                                <th>Usuario Organizador</th>
+                                <th>RUT del Usuario</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpo-tabla">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Consumir nuestra API en el backend
+        async function cargarEventos() {
+            try {
+                const respuesta = await fetch('http://localhost:3000/eventos');
+                const eventos = await respuesta.json();
+                
+                const cuerpoTabla = document.getElementById('cuerpo-tabla');
+                cuerpoTabla.innerHTML = ''; 
+
+                eventos.forEach(evento => {
+                    const fechaLimpiada = new Date(evento.fecha).toLocaleDateString('es-CL');
+                    
+                    const fila = document.createElement('tr');
+                    fila.innerHTML = `
+                        <td class="fw-bold">${evento.nombre}</td>
+                        <td><span class="badge bg-info text-dark">${evento.categoria}</span></td>
+                        <td>${fechaLimpiada}</td>
+                        <td>$${evento.costo}</td>
+                        <td>${evento.datosUsuario.nombre}</td>
+                        <td class="text-muted">${evento.datosUsuario.rut}</td>
+                    `;
+                    cuerpoTabla.appendChild(fila);
+                });
+            } catch (error) {
+                console.error('Error al cargar:', error);
+                document.getElementById('cuerpo-tabla').innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center text-danger">Aún no hay datos o el servidor está apagado.</td>
+                    </tr>
+                `;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', cargarEventos);
+    </script>
+</body>
+</html>
