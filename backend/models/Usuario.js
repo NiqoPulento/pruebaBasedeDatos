@@ -21,7 +21,6 @@ const usuarioSchema = new mongoose.Schema({
         type: Date,
         validate: {
             validator: function(value) {
-                
                 return value < new Date();
             },
             message: 'La fecha de nacimiento debe ser anterior a la fecha actual.'
@@ -37,7 +36,7 @@ const usuarioSchema = new mongoose.Schema({
     genero: { 
         type: String, 
         enum: {
-            values: ['M', 'F', 'U', 'O'],
+            values: ['M', 'F', 'O'],
             message: '{VALUE} no es un género válido'
         }
     },
@@ -64,8 +63,6 @@ const usuarioSchema = new mongoose.Schema({
     }
 });
 
-module.exports = mongoose.model('Usuario', usuarioSchema);
-
 usuarioSchema.pre('save', async function(next) {
     const usuario = this;
 
@@ -75,11 +72,11 @@ usuarioSchema.pre('save', async function(next) {
 
     try {
         const salt = await bcrypt.genSalt(10);
-        
         usuario.contrasena = await bcrypt.hash(usuario.contrasena, salt);
-        
         next();
     } catch (error) {
         next(error);
     }
 });
+
+module.exports = mongoose.model('Usuario', usuarioSchema);

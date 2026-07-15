@@ -1,19 +1,68 @@
+require('dotenv').config()
+const express = require('express'); 
+const cors = require('cors'); 
+const mongoose = require('mongoose'); 
 
-const express = require('express');
-const cors = require('cors');
-const mongoose = require('mongoose');
-
+const Usuario = require('./models/Usuario');
 const Evento = require('./models/Evento');
-const Usuario = require('./models/Usuario'); 
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-mongoose.connect('mongodb://localhost:27017/IEI_N3_C3', {}) 
-    .then(() => console.log('Conexión Exitosa!'))
-    .catch((err) => console.log('No se ha podido establecer la conexión con el servidor ', err));
+console.log('Conectando a MongoDB...', process.env.URI);
+mongoose.connect(process.env.URI, {}) 
+    .then(() => console.log('Conexión Exitosa a Atlas!'))
+    .catch((err) => console.log('No se ha podido establecer la conexión', err));
+
+app.get('/api/eventos', async (req, res) => {
+    try {
+        const eventos = await Evento.aggregate([
+            {
+                $lookup: {
+                    from: 'usuarios',        
+                    localField: 'usuario',   
+                    foreignField: '_id',     
+                    as: 'datosUsuario'       
+                }
+            }
+        ]);
+        res.status(200).json(eventos);
+    } catch (err) {
+        res.status(500).json({ message: 'Error al obtener los eventos', error: err.message });
+    }
+});
+
+app.post('/api/eventos', async (req, res) => {
+    try {
+        const nuevoEvento = new Evento(req.body);
+        await nuevoEvento.save();
+        res.status(201).json({ message: 'Evento creado exitosamente', evento: nuevoEvento });
+    } catch (err) {
+        res.status(500).json({ message: 'Error al guardar el evento', error: err.message });
+    }
+});
+
+// NUEVA RUTA: Eliminar evento
+app.delete('/api/eventos/:id', async (req, res) => {
+    try {
+        const idEvento = req.params.id;
+        await Evento.findByIdAndDelete(idEvento);
+        res.status(200).json({ message: 'Evento eliminado correctamente' });
+    } catch (err) {
+        res.status(500).json({ message: 'Error al eliminar el evento', error: err.message });
+    }
+});
+
+app.get('/api/usuarios', async (req, res) => {
+    try {
+        const usuarios = await Usuario.find();
+        res.status(200).json(usuarios);
+    } catch (err) {
+        res.status(500).json({ message: 'Error al obtener usuarios', error: err.message });
+    }
+});
 
 const comuna = new mongoose.Schema({
     codigo_comuna: String,
@@ -32,86 +81,12 @@ const pais = new mongoose.Schema({
 });
 const Pais = mongoose.model('Pais', pais, 'paises');
 
-app.post('/guardarUsuario', async (req, res) => {
-    try {
-        const nuevoUsuario = new Usuario(req.body);
-        await nuevoUsuario.save();
-        
-        res.status(200).json({ message: 'Datos de usuario almacenados correctamente.' })
-    } catch (err) {
-        res.status(500).json({ message: 'No ha sido posible almacenar los datos: ', error: err.message })
-    }
-});
-
-app.get('/listadoUsuarios', async (req, res) => {
-    try {
-        const usuarios = await Usuario.aggregate([{
-            $lookup: {
-                from: 'paises', 
-                localField: 'nacionalidad', 
-                foreignField: 'iso2', 
-                as: 'gentilicio' 
-            }
-        }, {
-            $unwind: {
-                path: '$gentilicio',
-                preserveNullAndEmptyArrays: true
-            }
-        }]);
-        res.status(200).json(usuarios)
-    } catch (err) {
-        res.status(500).json({ message: 'No ha sido posible obtener los datos: ', err })
-    }
-});
-
-app.post('/eventos', async (req, res) => {
-    try {
-        const nuevoEvento = new Evento(req.body);
-        const eventoGuardado = await nuevoEvento.save();
-
-        res.status(201).json({
-            mensaje: 'Evento registrado con éxito',
-            evento: eventoGuardado
-        });
-    } catch (error) {
-        res.status(400).json({
-            mensaje: 'Error al registrar el evento',
-            error: error.message
-        });
-    }
-});
-
-app.get('/eventos', async (req, res) => {
-    try {
-        const eventos = await Evento.aggregate([
-            {
-                $lookup: {
-                    from: 'usuarios',         
-                    localField: 'usuario',    
-                    foreignField: '_id',      
-                    as: 'datosUsuario'        
-                }
-            },
-            {
-                $unwind: '$datosUsuario'
-            }
-        ]);
-
-        res.status(200).json(eventos);
-    } catch (error) {
-        res.status(500).json({
-            mensaje: 'Error al consultar los eventos',
-            error: error.message
-        });
-    }
-});
-
 app.get('/listadoPaises', async (req, res) => {
     try {
         const paises = await Pais.find();
         res.status(200).json(paises)
     } catch (err) {
-        res.status(500).json({ message: 'No ha sido posible obtener los datos: ', err })
+        res.status(500).json({ message: 'Error al obtener países', err })
     }
 });
 
@@ -120,9 +95,9 @@ app.get('/listadoComunas', async (req, res) => {
         const comunas = await Comuna.find();
         res.status(200).json(comunas)
     } catch (err) {
-        res.status(500).json({ message: 'No ha sido posible obtener los datos: ', err })
+        res.status(500).json({ message: 'Error al obtener comunas', err })
     }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor corriendo en el Puerto: ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor corriendo en el puerto: ${PORT}`));

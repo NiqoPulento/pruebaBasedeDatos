@@ -4,29 +4,78 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión de Eventos y Usuarios</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
+
     <div class="container mt-5">
-        <div class="card shadow">
-            <div class="card-header bg-dark text-white">
-                <h3 class="mb-0">Listado de Eventos (Evaluación 3)</h3>
+        <h2 class="mb-4 text-center fw-bold">Gestor de Eventos (Evaluación 3)</h2>
+        
+        <div class="card shadow-sm mb-5 border-0">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Registrar Nuevo Evento</h5>
             </div>
+            <div class="card-body bg-white">
+                <form id="form-evento">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nombre del Evento</label>
+                            <input type="text" class="form-control" id="nombre" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Categoría</label>
+                            <input type="text" class="form-control" id="categoria" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Lugar</label>
+                            <input type="text" class="form-control" id="lugar" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Fecha</label>
+                            <input type="date" class="form-control" id="fecha" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Hora</label>
+                            <input type="time" class="form-control" id="hora" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Costo ($)</label>
+                            <input type="number" class="form-control" id="costo" required>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Usuario Organizador</label>
+                            <select class="form-select" id="select-usuario" required>
+                                <option value="" disabled selected>Cargando usuarios...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-end">
+                        <button type="submit" class="btn btn-success px-4">Guardar Evento en BD</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-5">
             <div class="card-body">
+                <h5 class="mb-3 text-secondary">Eventos Registrados</h5>
                 <div class="table-responsive">
                     <table class="table table-hover table-bordered align-middle">
-                        <thead class="table-secondary">
+                        <thead class="table-dark">
                             <tr>
                                 <th>Nombre del Evento</th>
                                 <th>Categoría</th>
+                                <th>Lugar</th>
                                 <th>Fecha</th>
                                 <th>Costo</th>
-                                <th>Usuario Organizador</th>
-                                <th>RUT del Usuario</th>
+                                <th>Organizador (Nombre)</th>
+                                <th>Organizador (RUT)</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
-                        <tbody id="cuerpo-tabla">
-                            </tbody>
+                        <tbody id="tabla-eventos">
+                            <tr><td colspan="8" class="text-center">Cargando datos desde el servidor...</td></tr>
+                        </tbody>
                     </table>
                 </div>
             </div>
@@ -34,39 +83,124 @@
     </div>
 
     <script>
-        async function cargarEventos() {
+        async function cargarUsuarios() {
             try {
-                const respuesta = await fetch('http://localhost:3000/eventos');
-                const eventos = await respuesta.json();
+                const respuesta = await fetch('http://localhost:3000/api/usuarios');
+                const usuarios = await respuesta.json();
                 
-                const cuerpoTabla = document.getElementById('cuerpo-tabla');
-                cuerpoTabla.innerHTML = ''; 
-
-                eventos.forEach(evento => {
-                    const fechaLimpiada = new Date(evento.fecha).toLocaleDateString('es-CL');
-                    
-                    const fila = document.createElement('tr');
-                    fila.innerHTML = `
-                        <td class="fw-bold">${evento.nombre}</td>
-                        <td><span class="badge bg-info text-dark">${evento.categoria}</span></td>
-                        <td>${fechaLimpiada}</td>
-                        <td>$${evento.costo}</td>
-                        <td>${evento.datosUsuario.nombre}</td>
-                        <td class="text-muted">${evento.datosUsuario.rut}</td>
-                    `;
-                    cuerpoTabla.appendChild(fila);
+                const select = document.getElementById('select-usuario');
+                select.innerHTML = '<option value="" disabled selected>Seleccione un usuario...</option>';
+                
+                usuarios.forEach(usuario => {
+                    select.innerHTML += `<option value="${usuario._id}">${usuario.nombre} (RUT: ${usuario.rut})</option>`;
                 });
             } catch (error) {
-                console.error('Error al cargar:', error);
-                document.getElementById('cuerpo-tabla').innerHTML = `
-                    <tr>
-                        <td colspan="6" class="text-center text-danger">Aún no hay datos o el servidor está apagado.</td>
-                    </tr>
-                `;
+                console.error('Error cargando usuarios', error);
             }
         }
 
-        document.addEventListener('DOMContentLoaded', cargarEventos);
+        async function cargarDatos() {
+            try {
+                const respuesta = await fetch('http://localhost:3000/api/eventos'); 
+                const eventos = await respuesta.json();
+                const tbody = document.getElementById('tabla-eventos');
+                tbody.innerHTML = ''; 
+
+                if(eventos.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center">No hay eventos registrados. ¡Agrega uno arriba!</td></tr>';
+                    return;
+                }
+
+                eventos.forEach(evento => {
+                    let nombreUsuario = "No asignado";
+                    let rutUsuario = "No asignado";
+
+                    if (evento.datosUsuario && evento.datosUsuario.length > 0) {
+                        nombreUsuario = evento.datosUsuario[0].nombre;
+                        rutUsuario = evento.datosUsuario[0].rut;
+                    } else if (evento.usuario && evento.usuario.nombre) {
+                        nombreUsuario = evento.usuario.nombre;
+                        rutUsuario = evento.usuario.rut;
+                    }
+
+                    const fechaLimpia = evento.fecha ? evento.fecha.split('T')[0] : 'Sin fecha';
+
+                    const fila = `
+                        <tr>
+                            <td class="fw-bold">${evento.nombre}</td>
+                            <td>${evento.categoria}</td>
+                            <td>${evento.lugar}</td>
+                            <td>${fechaLimpia} a las ${evento.hora}</td>
+                            <td>$${evento.costo}</td>
+                            <td><span class="badge bg-primary">${nombreUsuario}</span></td>
+                            <td>${rutUsuario}</td>
+                            <td><button class="btn btn-sm btn-danger" onclick="eliminarEvento('${evento._id}')">Borrar</button></td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += fila;
+                });
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        document.getElementById('form-evento').addEventListener('submit', async (e) => {
+            e.preventDefault(); 
+
+            const selectUsuario = document.getElementById('select-usuario');
+            const textoOrganizador = selectUsuario.options[selectUsuario.selectedIndex].text.split(' (')[0];
+
+            const nuevoEvento = {
+                usuario: selectUsuario.value, 
+                nombre: document.getElementById('nombre').value,
+                categoria: document.getElementById('categoria').value,
+                lugar: document.getElementById('lugar').value,
+                fecha: document.getElementById('fecha').value,
+                hora: document.getElementById('hora').value,
+                costo: Number(document.getElementById('costo').value),
+                organizador: textoOrganizador
+            };
+
+            try {
+                const respuesta = await fetch('http://localhost:3000/api/eventos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(nuevoEvento)
+                });
+
+                if (respuesta.ok) {
+                    alert('¡Evento creado con éxito en MongoDB Atlas!');
+                    document.getElementById('form-evento').reset(); 
+                    cargarDatos(); 
+                } else {
+                    alert('Error al crear el evento.');
+                }
+            } catch (error) {
+                alert('No se pudo conectar al servidor.');
+            }
+        });
+
+        async function eliminarEvento(id) {
+            if(confirm('¿Estás seguro de que deseas eliminar este evento?')) {
+                try {
+                    const respuesta = await fetch(`http://localhost:3000/api/eventos/${id}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (respuesta.ok) {
+                        alert('¡Evento eliminado exitosamente!');
+                        cargarDatos();
+                    } else {
+                        alert('Error al eliminar el evento.');
+                    }
+                } catch (error) {
+                    alert('No se pudo conectar al servidor.');
+                }
+            }
+        }
+
+        cargarUsuarios();
+        cargarDatos();
     </script>
 </body>
 </html>

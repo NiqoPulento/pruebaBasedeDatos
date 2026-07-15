@@ -1,12 +1,14 @@
 const mongoose = require('mongoose');
-const Usuario = require('./backend/models/Usuario');
-const Evento = require('./backend/models/Evento');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') }); 
 
-mongoose.connect('mongodb://localhost:27017/IEI_N3_C3', {})
+const Usuario = require('../models/Usuario');
+const Evento = require('../models/Evento');
+
+mongoose.connect(process.env.URI, {})
     .then(async () => {
-        console.log('Conectado a MongoDB. Insertando datos de prueba...');
+        console.log('Conectado a Atlas para inyectar datos...');
         
-        // 1. Creamos un usuario
         const nuevoUsuario = new Usuario({
             nombre: "Juan Pérez",
             rut: "19.123.456-7",
@@ -18,7 +20,6 @@ mongoose.connect('mongodb://localhost:27017/IEI_N3_C3', {})
         });
         const usuarioGuardado = await nuevoUsuario.save();
 
-        // 2. Creamos un evento asociado a ese usuario
         const nuevoEvento = new Evento({
             usuario: usuarioGuardado._id,
             nombre: "Charla de Desarrollo Backend",
@@ -34,4 +35,7 @@ mongoose.connect('mongodb://localhost:27017/IEI_N3_C3', {})
         console.log('¡Datos insertados con éxito! Ya puedes cerrar este script (Ctrl + C).');
         process.exit();
     })
-    .catch(err => console.log('Error:', err));
+    .catch((err) => {
+        console.log('Error de conexión o inyección: ', err);
+        process.exit(1);
+    });
